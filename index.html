@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scroll Animation - Fixed Ticks</title>
+    <title>Scroll Animation - Smooth & Fluid</title>
     <style>
         body {
             margin: 0;
             background-color: #000;
             font-family: sans-serif;
-            /* L'altezza ora serve solo a dare spazio per il telefono, 
-               su PC controlleremo i singoli scatti della rotella direttamente */
-            height: 400vh; 
+            /* Altezza della pagina: più è alta, più lo scroll sarà lento e fluido */
+            height: 500vh; 
         }
 
         .sticky-container {
@@ -40,6 +39,7 @@
             font-size: 0.9rem;
             text-transform: uppercase;
             pointer-events: none;
+            z-index: 10;
         }
     </style>
 </head>
@@ -60,20 +60,14 @@
         const totalCartella2 = 63; 
         const loopSpeed = 80;      
         
-        // --- RILEVAMENTO DISPOSITIVO TOUCH ---
-        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
-        // --- FISICA INERZIALE RICALIBRATA ---
+        // --- FISICA INERZIALE UNIFICATA ---
         let currentFrame = 0;       
         let targetFrame = 0;
         
-        // smoothness gestisce la morbidezza del passaggio tra le foto.
-        // Se lo senti gommoso, alza questo valore verso lo 0.5 o 0.8
-        const smoothness = isTouchDevice ? 0.2 : 0.35; 
-
-        // MANOPOLA PC: Quanti fotogrammi vuoi che passino al MASSIMO con un singolo tic di rotella?
-        // Se metti 1, passerà una foto alla volta. Se metti 3, passerà più fluido ma veloce.
-        const framesPerTick = 2; 
+        // smoothness gestisce l'effetto "calamita/morbidezza" dell'animazione.
+        // Più è basso (es. 0.05), più l'animazione sarà lenta e burrosa a inseguire lo scroll.
+        // Più è alto (es. 0.2), più sarà reattiva e incollata al dito/rotella.
+        const smoothness = 0.1; 
 
         const formatNumber = (num) => String(num).padStart(4, '0');
 
@@ -112,45 +106,22 @@
             }
         }, loopSpeed);
 
-        // --- 3. LOGICA DI CALCOLO POSIZIONE ---
-        
-        // Gestione per SMARTPHONE (Touch)
+        // --- 3. LOGICA DI CALCOLO POSIZIONE (Unificata PC e Touch) ---
         window.addEventListener("scroll", () => {
-            if (isTouchDevice) {
-                const scrollTop = window.scrollY;
-                const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-                const scrollFraction = Math.max(0, Math.min(1, scrollTop / maxScroll));
+            const scrollTop = window.scrollY;
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            
+            // Evita divisioni per zero se la pagina non è abbastanza alta
+            const scrollFraction = maxScroll > 0 ? scrollTop / maxScroll : 0;
 
-                if (scrollTop > 10) {
-                    isScrolling = true;
-                    targetFrame = scrollFraction * (totalCartella2 - 1);
-                } else {
-                    isScrolling = false;
-                }
-            }
-        });
-
-        // Gestione per PC (Rotella bloccata a scatti fissi)
-        window.addEventListener("wheel", (e) => {
-            if (!isTouchDevice) {
+            // Se l'utente ha scollato più di 10px, passiamo ai frame di scroll
+            if (scrollTop > 10) {
                 isScrolling = true;
-
-                // e.deltaY ci dice solo la direzione (positivo giù, negativo su)
-                if (e.deltaY > 0) {
-                    // Avanza di N frame fissi
-                    targetFrame += framesPerTick; 
-                } else {
-                    // Torna indietro di N frame fissi
-                    targetFrame -= framesPerTick; 
-                }
-
-                // Limiti di sicurezza per non sforare i frame totali
-                targetFrame = Math.max(0, Math.min(totalCartella2 - 1, targetFrame));
-
-                // Se torniamo manualmente a inizio pagina, riattiva il loop
-                if (window.scrollY <= 10 && targetFrame === 0) {
-                    isScrolling = false;
-                }
+                targetFrame = scrollFraction * (totalCartella2 - 1);
+            } else {
+                // Se torna esattamente in cima, resetta e fa ripartire il loop
+                isScrolling = false;
+                targetFrame = 0;
             }
         }, { passive: true });
 
@@ -160,20 +131,29 @@
             if (isScrolling) {
                 const diff = targetFrame - currentFrame;
                 
-                // Inseguiamo il target frame con la nostra morbidezza (smoothness)
-                if (Math.abs(diff) < 0.05) {
+                // Inseguiamo il target frame con l'effetto volano (smoothness)
+                if (Math.abs(diff) < 0.01) {
                     currentFrame = targetFrame;
                 } else {
                     currentFrame += diff * smoothness;
                 }
 
-                const frameToDraw = Math.round(currentFrame);
+                // Arrotondiamo per prendere il fotogramma intero più vicino
+                const frameToDraw = Math.max(0, Math.min(totalCartella2 - 1, Math.round(currentFrame)));
 
                 context.clearRect(0, 0, canvas.width, canvas.height);
                 if (immaginiScroll[frameToDraw]) {
                     context.drawImage(immaginiScroll[frameToDraw], 0, 0);
                 }
+            } else {
+                // Se non stiamo scrollando, facciamo scivolare dolcemente currentFrame a 0
+                if (currentFrame > 0.1) {
+                    currentFrame += (0 - currentFrame) * smoothness;
+                } else {
+                    currentFrame = 0;
+                }
             }
+            
             requestAnimationFrame(animate);
         }
 
