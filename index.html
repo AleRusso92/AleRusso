@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scroll & Loop Animation - Smooth</title>
+    <title>Scroll Inertia Animation</title>
     <style>
         body {
             margin: 0;
             background-color: #000;
             font-family: sans-serif;
-            /* Puoi tenerlo basso (es 200vh o 300vh) perché ora la fluidità è gestita dal codice */
+            /* L'altezza della pagina ora serve solo a darti spazio per scrollare, 
+               puoi tenerla media così non devi fare chilometri con il mouse */
             height: 300vh; 
         }
 
@@ -44,7 +45,7 @@
 </head>
 <body>
 
-    <div class="info">Scorri per esplorare / Resta fermo per il loop</div>
+    <div class="info">Scorri per dare velocità / Resta fermo per il loop</div>
 
     <div class="sticky-container">
         <canvas id="animation-canvas"></canvas>
@@ -59,17 +60,18 @@
         const totalCartella2 = 63; 
         const loopSpeed = 80;      
         
-        // Variabili per lo scroll fluido
-        let targetFrame = 0;   // Il frame dove "dovremmo" essere secondo lo scroll
-        let currentFrame = 0;  // Il frame che stiamo effettivamente disegnando
-        const smoothness = 0.1; // PIÙ BASSO = PIÙ FLUIDO/LENTO (es. 0.05), PIÙ ALTO = PIÙ REATTIVO (es. 0.2)
+        // --- FISICA DELL'INERZIA ---
+        let currentFrame = 0;       // Il frame corrente (può essere un numero decimale nei calcoli)
+        let velocity = 0;           // Velocità attuale dell'animazione
+        const friction = 0.95;      // ATTRITO: Più è vicino a 1 (es. 0.98) più gira a lungo. Più è basso (es. 0.90) più si ferma subito.
+        const scrollSensitivity = 0.05; // SENSIBILITÀ: Quanta velocità guadagna ad ogni "scatto" di scroll.
 
         const formatNumber = (num) => String(num).padStart(4, '0');
 
         const immaginiLoop = [];
         const immaginiScroll = [];
 
-        // Caricamento immagini (Loop e Scroll)
+        // Caricamento immagini
         for (let i = 1; i <= totalCartella1; i++) {
             const img = new Image();
             img.src = `1/${formatNumber(i)}.png`;
@@ -86,7 +88,7 @@
             canvas.height = immaginiLoop[0].height;
         };
 
-        // --- 2. LOGICA LOOP ---
+        // --- 2. LOGICA LOOP AUTOMATICO ---
         let loopIndex = 0;
         let isScrolling = false;
 
@@ -98,39 +100,64 @@
             }
         }, loopSpeed);
 
-        // --- 3. LOGICA SCROLL FLUIDO ---
+        // --- 3. LOGICA DI SPINTA (SCROLL) ---
+        let lastScrollTop = 0;
+
         window.addEventListener("scroll", () => {
             const scrollTop = window.scrollY;
-            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-            const scrollFraction = scrollTop / maxScroll;
+            
+            // Calcoliamo di quanto si è spostato lo scroll (il "delta")
+            const delta = scrollTop - lastScrollTop;
+            lastScrollTop = scrollTop;
 
             if (scrollTop > 10) {
                 isScrolling = true;
-                // Calcoliamo il frame di destinazione
-                targetFrame = Math.min(totalCartella2 - 1, Math.floor(scrollFraction * totalCartella2));
+                // Lo scroll aggiunge velocità (può essere positiva o negativa in base alla direzione)
+                velocity += delta * scrollSensitivity;
             } else {
+                // Se torniamo in cima alla pagina, resettiamo per il loop
                 isScrolling = false;
+                velocity = 0;
             }
         });
 
-        // Funzione principale di animazione (gira a 60fps)
+        // --- 4. MOTORE FISICO (60 FPS) ---
         function animate() {
             if (isScrolling) {
-                // LERP: Ci avviciniamo al targetFrame un po' alla volta
-                currentFrame += (targetFrame - currentFrame) * smoothness;
-                
-                // Arrotondiamo per disegnare un frame intero
+                // Applichiamo l'attrito alla velocità ad ogni frame per farla calare gradualmente
+                velocity *= friction;
+
+                // Aggiorniamo il frame corrente in base alla velocità
+                currentFrame += velocity;
+
+                // Blocchiamo il frame tra 0 e l'ultima foto disponibile per non andare fuori scala
+                if (currentFrame < 0) {
+                    currentFrame = 0;
+                    velocity = 0; // Si ferma se sbatte all'inizio
+                }
+                if (currentFrame > totalCartella2 - 1) {
+                    currentFrame = totalCartella2 - 1;
+                    velocity = 0; // Si ferma se sbatte alla fine
+                }
+
+                // Arrotondiamo il frame per il disegno effettivo
                 const frameToDraw = Math.round(currentFrame);
-                
+
                 context.clearRect(0, 0, canvas.width, canvas.height);
                 if (immaginiScroll[frameToDraw]) {
                     context.drawImage(immaginiScroll[frameToDraw], 0, 0);
+                }
+
+                // Se la velocità diventa quasi zero, l'animazione si è fermata
+                // Ma rimaniamo in modalità "scroll" finché l'utente non decide di tornare in cima alla pagina
+                if (Math.abs(velocity) < 0.01 && window.scrollY <= 10) {
+                    isScrolling = false;
                 }
             }
             requestAnimationFrame(animate);
         }
 
-        animate(); // Avvia il ciclo di rendering
+        animate();
     </script>
 </body>
 </html>
