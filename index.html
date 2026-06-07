@@ -3,13 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scroll Inertia Animation - No Lag</title>
+    <title>Scroll Inertia Animation - Multi-Device</title>
     <style>
         body {
             margin: 0;
             background-color: #000;
             font-family: sans-serif;
-            height: 300vh; 
+            /* Altezza ottimale per COMPUTER: dà precisione alla rotella */
+            height: 600vh; 
+        }
+
+        /* Ottimizzazione per SMARTPHONE e TABLET (schermi piccoli o touch) */
+        @media (max-width: 768px) {
+            body {
+                /* Accorciamo lo scroll sul telefono perché il pollice ha meno corsa del mouse */
+                height: 400vh; 
+            }
         }
 
         .sticky-container {
@@ -43,7 +52,7 @@
 </head>
 <body>
 
-    <div class="info">Scorri per dare velocità / Resta fermo per il loop</div>
+    <div class="info">Scorri per esplorare / Resta fermo per il loop</div>
 
     <div class="sticky-container">
         <canvas id="animation-canvas"></canvas>
@@ -58,12 +67,18 @@
         const totalCartella2 = 63; 
         const loopSpeed = 80;      
         
-        // --- FISICA DELL'INERZIA OTTIMIZZATA ---
+        // --- RILEVAMENTO DISPOSITIVO TOUCH ---
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        // --- FISICA DINAMICA IN BASE AL DISPOSITIVO ---
         let currentFrame = 0;       
         let velocity = 0;           
-        const friction = 0.94;        // Leggermente ridotto per rendere la frenata più decisa
-        const scrollSensitivity = 0.04; 
-        const minVelocityStop = 0.15; // SOGLIA ANTI-LAG: Sotto questa velocità, l'animazione si stoppa di colpo evitando lo sfarfallio finale
+        
+        // Se è un telefono (touch) aumentiamo l'attrito (frena subito) e riduciamo la sensibilità per non farlo schizzare.
+        // Se è PC manteniamo i tuoi valori ottimali per la rotella.
+        const friction = isTouchDevice ? 0.85 : 0.94;        
+        const scrollSensitivity = isTouchDevice ? 0.02 : 0.04; 
+        const minVelocityStop = 0.15; 
 
         const formatNumber = (num) => String(num).padStart(4, '0');
 
@@ -85,6 +100,8 @@
         immaginiLoop[0].onload = () => {
             canvas.width = immaginiLoop[0].width;
             canvas.height = immaginiLoop[0].height;
+            // Disegna subito il primo frame per evitare lo schermo nero all'avvio
+            context.drawImage(immaginiLoop[0], 0, 0);
         };
 
         // --- 2. LOGICA LOOP AUTOMATICO ---
@@ -94,7 +111,9 @@
         setInterval(() => {
             if (!isScrolling) {
                 context.clearRect(0, 0, canvas.width, canvas.height);
-                context.drawImage(immaginiLoop[loopIndex], 0, 0);
+                if (immaginiLoop[loopIndex]) {
+                    context.drawImage(immaginiLoop[loopIndex], 0, 0);
+                }
                 loopIndex = (loopIndex + 1) % totalCartella1;
             }
         }, loopSpeed);
@@ -116,14 +135,13 @@
             }
         });
 
-        // --- 4. MOTORE FISICO CORRETTO ---
+        // --- 4. MOTORE FISICO ---
         function animate() {
             if (isScrolling) {
-                // Applichiamo l'attrito
+                // Applichiamo l'attrito differenziato PC/Touch
                 velocity *= friction;
 
-                // TRUCCO ANTI-LAG: Se la velocità è minima, azzerala subito. 
-                // Questo evita che i frame si "trascinino" pixel dopo pixel in modo scattoso.
+                // TRUCCO ANTI-LAG
                 if (Math.abs(velocity) < minVelocityStop) {
                     velocity = 0;
                 }
