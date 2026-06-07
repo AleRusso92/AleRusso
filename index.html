@@ -3,17 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scroll Animation - Ultra Fluid & Realtime</title>
+    <title>Scroll Animation - Apple Style</title>
     <style>
         body {
             margin: 0;
             background-color: #000;
             font-family: sans-serif;
-            /* AUMENTA O DIMINUISCI QUESTO VALORE:
-               Più la pagina è alta (es. 600vh), più immagini scorrerai con un leggero movimento.
-               Trova il compromesso perfetto per la fluidità del tuo set di immagini.
-            */
-            height: 450vh; 
+            /* FONDAMENTALE: Questo crea lo spazio fisico per poter scorrere la pagina */
+            height: 500vh; 
         }
 
         .sticky-container {
@@ -58,12 +55,18 @@
         const canvas = document.getElementById("animation-canvas");
         const context = canvas.getContext("2d");
 
-        // --- 1. CONFIGURAZIONE FILE ---
+        // --- 1. CONFIGURAZIONE ---
         const totalCartella1 = 63; 
         const totalCartella2 = 63; 
         const loopSpeed = 80;      
         
+        let currentFrame = 0;       
         let targetFrame = 0;
+        
+        // Questo è l'ammortizzatore (Lerp). 
+        // 0.08 è il valore perfetto per unire reattività e morbidezza.
+        const ease = 0.08; 
+
         const formatNumber = (num) => String(num).padStart(4, '0');
 
         const immaginiLoop = [];
@@ -87,7 +90,7 @@
             context.drawImage(immaginiLoop[0], 0, 0);
         };
 
-        // --- 2. LOGICA LOOP AUTOMATICO (Fermo in cima) ---
+        // --- 2. LOOP INIZIALE ---
         let loopIndex = 0;
         let isScrolling = false;
 
@@ -101,40 +104,41 @@
             }
         }, loopSpeed);
 
-        // --- 3. AGGIORNAMENTO IN TEMPO REALE AL 100% ---
+        // --- 3. LETTURA DELLO SCROLL NATIVO ---
         window.addEventListener("scroll", () => {
-            const scrollTop = window.scrollY;
+            // Compatibilità migliorata per calcolare lo scroll esatto
+            const scrollTop = window.scrollY || document.documentElement.scrollTop;
             const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-            const scrollFraction = maxScroll > 0 ? scrollTop / maxScroll : 0;
+            
+            if (maxScroll > 0) {
+                const scrollFraction = scrollTop / maxScroll;
 
-            if (scrollTop > 10) {
-                isScrolling = true;
-                // Calcola il frame esatto corrispondente alla posizione dello scroll
-                targetFrame = Math.floor(scrollFraction * (totalCartella2 - 1));
-            } else {
-                isScrolling = false;
-                targetFrame = 0;
+                if (scrollTop > 10) {
+                    isScrolling = true;
+                    // Calcoliamo dove "dovrebbe" essere il frame in base allo scroll
+                    targetFrame = scrollFraction * (totalCartella2 - 1);
+                } else {
+                    isScrolling = false;
+                    targetFrame = 0;
+                    currentFrame = 0;
+                }
             }
-        }, { passive: true });
+        });
 
-
-        // --- 4. MOTORE DI RENDERING (Senza ritardi indotti) ---
-        let lastRenderedFrame = -1;
-
+        // --- 4. MOTORE DI RENDERING FLUIDO ---
         function animate() {
             if (isScrolling) {
-                // Disegna solo se il frame è effettivamente cambiato, per non sprecare risorse
-                if (targetFrame !== lastRenderedFrame) {
-                    const frameToDraw = Math.max(0, Math.min(totalCartella2 - 1, targetFrame));
-                    
-                    context.clearRect(0, 0, canvas.width, canvas.height);
-                    if (immaginiScroll[frameToDraw]) {
-                        context.drawImage(immaginiScroll[frameToDraw], 0, 0);
-                    }
-                    lastRenderedFrame = frameToDraw;
+                // L'ammortizzatore che fa scivolare dolcemente currentFrame verso targetFrame
+                currentFrame += (targetFrame - currentFrame) * ease;
+                
+                // Arrotondiamo per scegliere l'immagine da disegnare
+                const frameToDraw = Math.round(currentFrame);
+                const safeFrame = Math.max(0, Math.min(totalCartella2 - 1, frameToDraw));
+
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                if (immaginiScroll[safeFrame]) {
+                    context.drawImage(immaginiScroll[safeFrame], 0, 0);
                 }
-            } else {
-                lastRenderedFrame = -1; // Reset per quando si ferma in cima
             }
             
             requestAnimationFrame(animate);
