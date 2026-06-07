@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scroll & Loop Animation</title>
+    <title>Scroll & Loop Animation - Smooth</title>
     <style>
         body {
             margin: 0;
             background-color: #000;
             font-family: sans-serif;
-            /* MODIFICATO: Abbassando questo valore, lo scroll diventa più corto e l'animazione più veloce */
-            height: 500vh; 
+            /* Puoi tenerlo basso (es 200vh o 300vh) perché ora la fluidità è gestita dal codice */
+            height: 300vh; 
         }
 
         .sticky-container {
@@ -54,24 +54,27 @@
         const canvas = document.getElementById("animation-canvas");
         const context = canvas.getContext("2d");
 
-        // --- 1. CONFIGURAZIONE DELLE FOTO ---
+        // --- 1. CONFIGURAZIONE ---
         const totalCartella1 = 63; 
         const totalCartella2 = 63; 
         const loopSpeed = 80;      
+        
+        // Variabili per lo scroll fluido
+        let targetFrame = 0;   // Il frame dove "dovremmo" essere secondo lo scroll
+        let currentFrame = 0;  // Il frame che stiamo effettivamente disegnando
+        const smoothness = 0.1; // PIÙ BASSO = PIÙ FLUIDO/LENTO (es. 0.05), PIÙ ALTO = PIÙ REATTIVO (es. 0.2)
 
         const formatNumber = (num) => String(num).padStart(4, '0');
 
         const immaginiLoop = [];
         const immaginiScroll = [];
 
-        // Caricamento Cartella "1" (Loop)
+        // Caricamento immagini (Loop e Scroll)
         for (let i = 1; i <= totalCartella1; i++) {
             const img = new Image();
             img.src = `1/${formatNumber(i)}.png`;
             immaginiLoop.push(img);
         }
-
-        // Caricamento Cartella "2" (Scroll)
         for (let i = 1; i <= totalCartella2; i++) {
             const img = new Image();
             img.src = `2/${formatNumber(i)}.png`;
@@ -83,52 +86,51 @@
             canvas.height = immaginiLoop[0].height;
         };
 
-        // --- 2. LOGICA DEL LOOP AUTOMATICO (Cartella 1) ---
+        // --- 2. LOGICA LOOP ---
         let loopIndex = 0;
-        let loopInterval = null;
+        let isScrolling = false;
 
-        function avviaLoopAutomatico() {
-            if (loopInterval) return;
-            loopInterval = setInterval(() => {
+        setInterval(() => {
+            if (!isScrolling) {
                 context.clearRect(0, 0, canvas.width, canvas.height);
                 context.drawImage(immaginiLoop[loopIndex], 0, 0);
                 loopIndex = (loopIndex + 1) % totalCartella1;
-            }, loopSpeed);
-        }
-
-        function fermaLoopAutomatico() {
-            clearInterval(loopInterval);
-            loopInterval = null;
-        }
-
-        // --- 3. LOGICA DELLO SCROLL (Cartella 2) ---
-        function renderScrollFrame(index) {
-            if (immaginiScroll[index]) {
-                context.clearRect(0, 0, canvas.width, canvas.height);
-                context.drawImage(immaginiScroll[index], 0, 0);
             }
-        }
+        }, loopSpeed);
 
+        // --- 3. LOGICA SCROLL FLUIDO ---
         window.addEventListener("scroll", () => {
             const scrollTop = window.scrollY;
             const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
             const scrollFraction = scrollTop / maxScroll;
 
-            if (scrollTop <= 5) {
-                avviaLoopAutomatico();
+            if (scrollTop > 10) {
+                isScrolling = true;
+                // Calcoliamo il frame di destinazione
+                targetFrame = Math.min(totalCartella2 - 1, Math.floor(scrollFraction * totalCartella2));
             } else {
-                fermaLoopAutomatico();
-                
-                const frameIndex = Math.min(
-                    totalCartella2 - 1,
-                    Math.floor(scrollFraction * totalCartella2)
-                );
-                
-                requestAnimationFrame(() => renderScrollFrame(frameIndex));
+                isScrolling = false;
             }
         });
 
-        avviaLoopAutomatico();
+        // Funzione principale di animazione (gira a 60fps)
+        function animate() {
+            if (isScrolling) {
+                // LERP: Ci avviciniamo al targetFrame un po' alla volta
+                currentFrame += (targetFrame - currentFrame) * smoothness;
+                
+                // Arrotondiamo per disegnare un frame intero
+                const frameToDraw = Math.round(currentFrame);
+                
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                if (immaginiScroll[frameToDraw]) {
+                    context.drawImage(immaginiScroll[frameToDraw], 0, 0);
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        animate(); // Avvia il ciclo di rendering
     </script>
 </body>
 </html>
