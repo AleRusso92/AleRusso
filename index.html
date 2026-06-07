@@ -3,14 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scroll & Loop Video Animation</title>
+    <title>Scroll Inertia Animation - Final</title>
     <style>
         body {
             margin: 0;
             background-color: #000;
             font-family: sans-serif;
-            /* Più è alto questo valore, più lo scroll sarà lungo e lento */
-            height: 200vh; 
+            /* Altezza ottimale per COMPUTER: dà precisione alla rotella */
+            height: 600vh; 
+        }
+
+        /* Ottimizzazione dello spazio di scroll per SMARTPHONE e TABLET */
+        @media (max-width: 768px) {
+            body {
+                /* Accorciamo lo scroll sul telefono perché il pollice ha meno corsa della rotella */
+                height: 400vh; 
+            }
         }
 
         .sticky-container {
@@ -24,16 +32,10 @@
             align-items: center;
         }
 
-        video {
+        canvas {
             max-width: 100vw;
             max-height: 100vh;
             object-fit: contain;
-            display: none; /* Nascondiamo i video di base */
-        }
-
-        /* Mostra il video attivo */
-        video.active {
-            display: block;
         }
 
         .info {
@@ -41,11 +43,10 @@
             bottom: 20px;
             width: 100%;
             text-align: center;
-            color: rgba(255,255,255,0.6);
+            color: rgba(255,255,255,0.7);
             font-size: 0.9rem;
             text-transform: uppercase;
             pointer-events: none;
-            z-index: 10;
         }
     </style>
 </head>
@@ -54,38 +55,135 @@
     <div class="info">Scorri per esplorare / Resta fermo per il loop</div>
 
     <div class="sticky-container">
-        <video id="video-loop" src="loop.mp4" autoplay loop muted playsinline class="active"></video>
-        
-        <video id="video-scroll" src="scroll.mp4" muted playsinline preload="auto"></video>
+        <canvas id="animation-canvas"></canvas>
     </div>
 
     <script>
-        const videoLoop = document.getElementById("video-loop");
-        const videoScroll = document.getElementById("video-scroll");
+        const canvas = document.getElementById("animation-canvas");
+        const context = canvas.getContext("2d");
+
+        // --- 1. CONFIGURAZIONE FILE ---
+        const totalCartella1 = 63; 
+        const totalCartella2 = 63; 
+        const loopSpeed = 80;      
+        
+        // --- RILEVAMENTO DISPOSITIVO TOUCH ---
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        // --- FISICA DINAMICA E CALIBRATA ---
+        let currentFrame = 0;       
+        let velocity = 0;           
+        
+        // FISICA ADATTIVA: Se è un telefono (touch) aumentiamo molto l'attrito (si ferma subito) 
+        // e riduciamo la sensibilità. Se è PC usiamo i freni bilanciati (0.88) per la rotella.
+        const friction = isTouchDevice ? 0.75 : 0.88;        
+        const scrollSensitivity = isTouchDevice ? 0.005 : 0.015; 
+        const minVelocityStop = 0.15; 
+
+        // Limitatore di velocità per PC (evita che l'animazione scappi via con un solo colpo di rotella)
+        const maxVelocityPC = 1.2; 
+
+        const formatNumber = (num) => String(num).padStart(4, '0');
+
+        const immaginiLoop = [];
+        const immaginiScroll = [];
+
+        // Caricamento immagini
+        for (let i = 1; i <= totalCartella1; i++) {
+            const img = new Image();
+            img.src = `1/${formatNumber(i)}.png`;
+            immaginiLoop.push(img);
+        }
+        for (let i = 1; i <= totalCartella2; i++) {
+            const img = new Image();
+            img.src = `2/${formatNumber(i)}.png`;
+            immaginiScroll.push(img);
+        }
+
+        // ANTI-SCHERMO NERO: Disegna subito il primo frame del loop appena la pagina è pronta
+        immaginiLoop[0].onload = () => {
+            canvas.width = immaginiLoop[0].width;
+            canvas.height = immaginiLoop[0].height;
+            context.drawImage(immaginiLoop[0], 0, 0);
+        };
+
+        // --- 2. LOGICA LOOP AUTOMATICO (Fermo in cima) ---
+        let loopIndex = 0;
+        let isScrolling = false;
+
+        setInterval(() => {
+            if (!isScrolling) {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                if (immaginiLoop[loopIndex]) {
+                    context.drawImage(immaginiLoop[loopIndex], 0, 0);
+                }
+                loopIndex = (loopIndex + 1) % totalCartella1;
+            }
+        }, loopSpeed);
+
+        // --- 3. LOGICA DI SPINTA (SCROLL CON LIMITATORE) ---
+        let lastScrollTop = 0;
 
         window.addEventListener("scroll", () => {
             const scrollTop = window.scrollY;
-            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-            const scrollFraction = scrollTop / maxScroll;
+            const delta = scrollTop - lastScrollTop;
+            lastScrollTop = scrollTop;
 
-            // Se siamo all'inizio della pagina (Utente fermo in cima)
-            if (scrollTop <= 10) {
-                videoScroll.classList.remove("active");
-                videoLoop.classList.add("active");
-                videoLoop.play();
-            } else {
-                // Se l'utente sta scrollando
-                videoLoop.pause();
-                videoLoop.classList.remove("active");
-                videoScroll.classList.add("active");
+            if (scrollTop > 10) {
+                isScrolling = true;
+                
+                // Generiamo la spinta d'inerzia
+                velocity += delta * scrollSensitivity;
 
-                // Mappa lo scroll sulla durata del secondo video
-                if (videoScroll.duration) {
-                    // Calcola il secondo esatto del video in base allo scroll
-                    videoScroll.currentTime = videoScroll.duration * scrollFraction;
+                // Applichiamo il limitatore di velocità rigido solo se siamo da PC
+                if (!isTouchDevice) {
+                    if (velocity > maxVelocityPC) velocity = maxVelocityPC;
+                    if (velocity < -maxVelocityPC) velocity = -maxVelocityPC;
                 }
+            } else {
+                isScrolling = false;
+                velocity = 0;
             }
         });
+
+        // --- 4. MOTORE FISICO CONTINUO ---
+        function animate() {
+            if (isScrolling) {
+                // Applichiamo l'attrito dinamico
+                velocity *= friction;
+
+                // TRUCCO ANTI-LAG: Evita la scattosità da micro-velocità
+                if (Math.abs(velocity) < minVelocityStop) {
+                    velocity = 0;
+                }
+
+                currentFrame += velocity;
+
+                // Limiti fisici di sicurezza (impedisce al codice di cercare foto che non esistono)
+                if (currentFrame < 0) {
+                    currentFrame = 0;
+                    velocity = 0;
+                }
+                if (currentFrame > totalCartella2 - 1) {
+                    currentFrame = totalCartella2 - 1;
+                    velocity = 0;
+                }
+
+                const frameToDraw = Math.round(currentFrame);
+
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                if (immaginiScroll[frameToDraw]) {
+                    context.drawImage(immaginiScroll[frameToDraw], 0, 0);
+                }
+
+                if (velocity === 0 && window.scrollY <= 10) {
+                    isScrolling = false;
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        animate();
     </script>
 </body>
 </html>
