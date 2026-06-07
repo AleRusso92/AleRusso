@@ -3,14 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scroll Inertia Animation</title>
+    <title>Scroll Inertia Animation - No Lag</title>
     <style>
         body {
             margin: 0;
             background-color: #000;
             font-family: sans-serif;
-            /* L'altezza della pagina ora serve solo a darti spazio per scrollare, 
-               puoi tenerla media così non devi fare chilometri con il mouse */
             height: 300vh; 
         }
 
@@ -60,11 +58,12 @@
         const totalCartella2 = 63; 
         const loopSpeed = 80;      
         
-        // --- FISICA DELL'INERZIA ---
-        let currentFrame = 0;       // Il frame corrente (può essere un numero decimale nei calcoli)
-        let velocity = 0;           // Velocità attuale dell'animazione
-        const friction = 0.95;      // ATTRITO: Più è vicino a 1 (es. 0.98) più gira a lungo. Più è basso (es. 0.90) più si ferma subito.
-        const scrollSensitivity = 0.05; // SENSIBILITÀ: Quanta velocità guadagna ad ogni "scatto" di scroll.
+        // --- FISICA DELL'INERZIA OTTIMIZZATA ---
+        let currentFrame = 0;       
+        let velocity = 0;           
+        const friction = 0.94;        // Leggermente ridotto per rendere la frenata più decisa
+        const scrollSensitivity = 0.04; 
+        const minVelocityStop = 0.15; // SOGLIA ANTI-LAG: Sotto questa velocità, l'animazione si stoppa di colpo evitando lo sfarfallio finale
 
         const formatNumber = (num) => String(num).padStart(4, '0');
 
@@ -105,42 +104,42 @@
 
         window.addEventListener("scroll", () => {
             const scrollTop = window.scrollY;
-            
-            // Calcoliamo di quanto si è spostato lo scroll (il "delta")
             const delta = scrollTop - lastScrollTop;
             lastScrollTop = scrollTop;
 
             if (scrollTop > 10) {
                 isScrolling = true;
-                // Lo scroll aggiunge velocità (può essere positiva o negativa in base alla direzione)
                 velocity += delta * scrollSensitivity;
             } else {
-                // Se torniamo in cima alla pagina, resettiamo per il loop
                 isScrolling = false;
                 velocity = 0;
             }
         });
 
-        // --- 4. MOTORE FISICO (60 FPS) ---
+        // --- 4. MOTORE FISICO CORRETTO ---
         function animate() {
             if (isScrolling) {
-                // Applichiamo l'attrito alla velocità ad ogni frame per farla calare gradualmente
+                // Applichiamo l'attrito
                 velocity *= friction;
 
-                // Aggiorniamo il frame corrente in base alla velocità
+                // TRUCCO ANTI-LAG: Se la velocità è minima, azzerala subito. 
+                // Questo evita che i frame si "trascinino" pixel dopo pixel in modo scattoso.
+                if (Math.abs(velocity) < minVelocityStop) {
+                    velocity = 0;
+                }
+
                 currentFrame += velocity;
 
-                // Blocchiamo il frame tra 0 e l'ultima foto disponibile per non andare fuori scala
+                // Limiti fisici delle cartelle
                 if (currentFrame < 0) {
                     currentFrame = 0;
-                    velocity = 0; // Si ferma se sbatte all'inizio
+                    velocity = 0;
                 }
                 if (currentFrame > totalCartella2 - 1) {
                     currentFrame = totalCartella2 - 1;
-                    velocity = 0; // Si ferma se sbatte alla fine
+                    velocity = 0;
                 }
 
-                // Arrotondiamo il frame per il disegno effettivo
                 const frameToDraw = Math.round(currentFrame);
 
                 context.clearRect(0, 0, canvas.width, canvas.height);
@@ -148,9 +147,7 @@
                     context.drawImage(immaginiScroll[frameToDraw], 0, 0);
                 }
 
-                // Se la velocità diventa quasi zero, l'animazione si è fermata
-                // Ma rimaniamo in modalità "scroll" finché l'utente non decide di tornare in cima alla pagina
-                if (Math.abs(velocity) < 0.01 && window.scrollY <= 10) {
+                if (velocity === 0 && window.scrollY <= 10) {
                     isScrolling = false;
                 }
             }
