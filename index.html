@@ -3,22 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scroll Inertia Animation - Final</title>
+    <title>Scroll Animation - Fixed Ticks</title>
     <style>
         body {
             margin: 0;
             background-color: #000;
             font-family: sans-serif;
-            /* Altezza ottimale per COMPUTER: dà precisione alla rotella */
-            height: 600vh; 
-        }
-
-        /* Ottimizzazione dello spazio di scroll per SMARTPHONE e TABLET */
-        @media (max-width: 768px) {
-            body {
-                /* Accorciamo lo scroll sul telefono perché il pollice ha meno corsa della rotella */
-                height: 400vh; 
-            }
+            /* L'altezza ora serve solo a dare spazio per il telefono, 
+               su PC controlleremo i singoli scatti della rotella direttamente */
+            height: 400vh; 
         }
 
         .sticky-container {
@@ -70,18 +63,17 @@
         // --- RILEVAMENTO DISPOSITIVO TOUCH ---
         const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-        // --- FISICA DINAMICA E CALIBRATA ---
+        // --- FISICA INERZIALE RICALIBRATA ---
         let currentFrame = 0;       
-        let velocity = 0;           
+        let targetFrame = 0;
         
-        // FISICA ADATTIVA: Se è un telefono (touch) aumentiamo molto l'attrito (si ferma subito) 
-        // e riduciamo la sensibilità. Se è PC usiamo i freni bilanciati (0.88) per la rotella.
-        const friction = isTouchDevice ? 0.75 : 0.88;        
-        const scrollSensitivity = isTouchDevice ? 0.005 : 0.015; 
-        const minVelocityStop = 0.15; 
+        // smoothness gestisce la morbidezza del passaggio tra le foto.
+        // Se lo senti gommoso, alza questo valore verso lo 0.5 o 0.8
+        const smoothness = isTouchDevice ? 0.2 : 0.35; 
 
-        // Limitatore di velocità per PC (evita che l'animazione scappi via con un solo colpo di rotella)
-        const maxVelocityPC = 1.2; 
+        // MANOPOLA PC: Quanti fotogrammi vuoi che passino al MASSIMO con un singolo tic di rotella?
+        // Se metti 1, passerà una foto alla volta. Se metti 3, passerà più fluido ma veloce.
+        const framesPerTick = 2; 
 
         const formatNumber = (num) => String(num).padStart(4, '0');
 
@@ -100,7 +92,6 @@
             immaginiScroll.push(img);
         }
 
-        // ANTI-SCHERMO NERO: Disegna subito il primo frame del loop appena la pagina è pronta
         immaginiLoop[0].onload = () => {
             canvas.width = immaginiLoop[0].width;
             canvas.height = immaginiLoop[0].height;
@@ -121,52 +112,59 @@
             }
         }, loopSpeed);
 
-        // --- 3. LOGICA DI SPINTA (SCROLL CON LIMITATORE) ---
-        let lastScrollTop = 0;
-
+        // --- 3. LOGICA DI CALCOLO POSIZIONE ---
+        
+        // Gestione per SMARTPHONE (Touch)
         window.addEventListener("scroll", () => {
-            const scrollTop = window.scrollY;
-            const delta = scrollTop - lastScrollTop;
-            lastScrollTop = scrollTop;
+            if (isTouchDevice) {
+                const scrollTop = window.scrollY;
+                const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+                const scrollFraction = Math.max(0, Math.min(1, scrollTop / maxScroll));
 
-            if (scrollTop > 10) {
-                isScrolling = true;
-                
-                // Generiamo la spinta d'inerzia
-                velocity += delta * scrollSensitivity;
-
-                // Applichiamo il limitatore di velocità rigido solo se siamo da PC
-                if (!isTouchDevice) {
-                    if (velocity > maxVelocityPC) velocity = maxVelocityPC;
-                    if (velocity < -maxVelocityPC) velocity = -maxVelocityPC;
+                if (scrollTop > 10) {
+                    isScrolling = true;
+                    targetFrame = scrollFraction * (totalCartella2 - 1);
+                } else {
+                    isScrolling = false;
                 }
-            } else {
-                isScrolling = false;
-                velocity = 0;
             }
         });
 
-        // --- 4. MOTORE FISICO CONTINUO ---
+        // Gestione per PC (Rotella bloccata a scatti fissi)
+        window.addEventListener("wheel", (e) => {
+            if (!isTouchDevice) {
+                isScrolling = true;
+
+                // e.deltaY ci dice solo la direzione (positivo giù, negativo su)
+                if (e.deltaY > 0) {
+                    // Avanza di N frame fissi
+                    targetFrame += framesPerTick; 
+                } else {
+                    // Torna indietro di N frame fissi
+                    targetFrame -= framesPerTick; 
+                }
+
+                // Limiti di sicurezza per non sforare i frame totali
+                targetFrame = Math.max(0, Math.min(totalCartella2 - 1, targetFrame));
+
+                // Se torniamo manualmente a inizio pagina, riattiva il loop
+                if (window.scrollY <= 10 && targetFrame === 0) {
+                    isScrolling = false;
+                }
+            }
+        }, { passive: true });
+
+
+        // --- 4. MOTORE DI RENDERING ---
         function animate() {
             if (isScrolling) {
-                // Applichiamo l'attrito dinamico
-                velocity *= friction;
-
-                // TRUCCO ANTI-LAG: Evita la scattosità da micro-velocità
-                if (Math.abs(velocity) < minVelocityStop) {
-                    velocity = 0;
-                }
-
-                currentFrame += velocity;
-
-                // Limiti fisici di sicurezza (impedisce al codice di cercare foto che non esistono)
-                if (currentFrame < 0) {
-                    currentFrame = 0;
-                    velocity = 0;
-                }
-                if (currentFrame > totalCartella2 - 1) {
-                    currentFrame = totalCartella2 - 1;
-                    velocity = 0;
+                const diff = targetFrame - currentFrame;
+                
+                // Inseguiamo il target frame con la nostra morbidezza (smoothness)
+                if (Math.abs(diff) < 0.05) {
+                    currentFrame = targetFrame;
+                } else {
+                    currentFrame += diff * smoothness;
                 }
 
                 const frameToDraw = Math.round(currentFrame);
@@ -174,10 +172,6 @@
                 context.clearRect(0, 0, canvas.width, canvas.height);
                 if (immaginiScroll[frameToDraw]) {
                     context.drawImage(immaginiScroll[frameToDraw], 0, 0);
-                }
-
-                if (velocity === 0 && window.scrollY <= 10) {
-                    isScrolling = false;
                 }
             }
             requestAnimationFrame(animate);
