@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scroll Inertia - Balanced Mix</title>
+    <title>Controllo Totale - Scroll Animation</title>
     <style>
         body {
             margin: 0;
             background-color: #000;
-            font-family: sans-serif;
-            /* Teniamo l'altezza generosa così hai spazio per fare più scrollate di seguito */
-            height: 400vh; 
+            /* Aumentiamo l'altezza così hai molto "spazio" per muoverti lentamente tra le foto */
+            height: 800vh; 
         }
 
         .sticky-container {
@@ -35,8 +34,8 @@
             bottom: 20px;
             width: 100%;
             text-align: center;
-            color: rgba(255,255,255,0.7);
-            font-size: 0.9rem;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.8rem;
             text-transform: uppercase;
             pointer-events: none;
         }
@@ -44,7 +43,7 @@
 </head>
 <body>
 
-    <div class="info">Scorri per esplorare / Resta fermo per il loop</div>
+    <div class="info">Controllo manuale attivo</div>
 
     <div class="sticky-container">
         <canvas id="animation-canvas"></canvas>
@@ -59,13 +58,12 @@
         const totalCartella2 = 63; 
         const loopSpeed = 80;      
         
-        // --- FISICA BILANCIATA (IL MIX) ---
+        // --- LOGICA DI CONTROLLO DIRETTO ---
         let currentFrame = 0;       
-        let velocity = 0;           
-        const friction = 0.88;         // ATTRITO PIÙ ALTO: Frena l'animazione molto prima (Evita che vada da 0 a 63 da sola)
-        const scrollSensitivity = 0.02; // SENSIBILITÀ RIDOTTA: Ogni scatto del mouse dà una spinta più leggera e controllata
-        const maxVelocity = 1.5;       // VELOCITÀ MASSIMA: Mette un "tetto" alla velocità. Anche se scrolli come un matto, non supererà questo limite.
-        const minVelocityStop = 0.1;   
+        let targetFrame = 0;
+        // smoothness: 0.1 è molto morbido, 0.3 è quasi istantaneo. 
+        // Se vuoi che si fermi subito quando smetti di scrollare, usa un valore alto (0.2 - 0.4).
+        const smoothness = 0.25; 
 
         const formatNumber = (num) => String(num).padStart(4, '0');
 
@@ -80,4 +78,61 @@
         }
         for (let i = 1; i <= totalCartella2; i++) {
             const img = new Image();
-            img.src = `2/${formatNumber
+            img.src = `2/${formatNumber(i)}.png`;
+            immaginiScroll.push(img);
+        }
+
+        immaginiLoop[0].onload = () => {
+            canvas.width = immaginiLoop[0].width;
+            canvas.height = immaginiLoop[0].height;
+        };
+
+        // --- 2. LOOP AUTOMATICO (QUANDO SEI IN CIMA) ---
+        let loopIndex = 0;
+        let isScrolling = false;
+
+        setInterval(() => {
+            if (!isScrolling) {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(immaginiLoop[loopIndex], 0, 0);
+                loopIndex = (loopIndex + 1) % totalCartella1;
+            }
+        }, loopSpeed);
+
+        // --- 3. LOGICA DI POSIZIONAMENTO ---
+        window.addEventListener("scroll", () => {
+            const scrollTop = window.scrollY;
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            const scrollFraction = scrollTop / maxScroll;
+
+            if (scrollTop > 20) {
+                isScrolling = true;
+                // Mappiamo la posizione esatta dello scroll sul frame desiderato
+                targetFrame = scrollFraction * (totalCartella2 - 1);
+            } else {
+                isScrolling = false;
+            }
+        });
+
+        // --- 4. RENDERING ---
+        function animate() {
+            if (isScrolling) {
+                // Inseguiamo il targetFrame. Appena targetFrame smette di cambiare (perché non scrolli), 
+                // currentFrame lo raggiunge in pochissimi millisecondi e si ferma.
+                const diff = targetFrame - currentFrame;
+                currentFrame += diff * smoothness;
+
+                const frameToDraw = Math.round(currentFrame);
+
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                if (immaginiScroll[frameToDraw]) {
+                    context.drawImage(immaginiScroll[frameToDraw], 0, 0);
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
