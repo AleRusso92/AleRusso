@@ -8,8 +8,7 @@
         body {
             margin: 0;
             background-color: #000;
-            /* Aumentiamo l'altezza così hai molto "spazio" per muoverti lentamente tra le foto */
-            height: 800vh; 
+            height: 800vh; /* Più è alto, più è lento e controllato */
         }
 
         .sticky-container {
@@ -53,16 +52,13 @@
         const canvas = document.getElementById("animation-canvas");
         const context = canvas.getContext("2d");
 
-        // --- 1. CONFIGURAZIONE ---
+        // --- CONFIGURAZIONE ---
         const totalCartella1 = 63; 
         const totalCartella2 = 63; 
         const loopSpeed = 80;      
         
-        // --- LOGICA DI CONTROLLO DIRETTO ---
         let currentFrame = 0;       
         let targetFrame = 0;
-        // smoothness: 0.1 è molto morbido, 0.3 è quasi istantaneo. 
-        // Se vuoi che si fermi subito quando smetti di scrollare, usa un valore alto (0.2 - 0.4).
         const smoothness = 0.25; 
 
         const formatNumber = (num) => String(num).padStart(4, '0');
@@ -82,24 +78,28 @@
             immaginiScroll.push(img);
         }
 
+        // FUNZIONE DI SICUREZZA: Disegna subito la primissima foto appena carica
         immaginiLoop[0].onload = () => {
             canvas.width = immaginiLoop[0].width;
             canvas.height = immaginiLoop[0].height;
+            context.drawImage(immaginiLoop[0], 0, 0); // Forziamo il primo disegno qui
         };
 
-        // --- 2. LOOP AUTOMATICO (QUANDO SEI IN CIMA) ---
+        // --- LOOP AUTOMATICO ---
         let loopIndex = 0;
         let isScrolling = false;
 
         setInterval(() => {
             if (!isScrolling) {
                 context.clearRect(0, 0, canvas.width, canvas.height);
-                context.drawImage(immaginiLoop[loopIndex], 0, 0);
+                if (immaginiLoop[loopIndex]) {
+                    context.drawImage(immaginiLoop[loopIndex], 0, 0);
+                }
                 loopIndex = (loopIndex + 1) % totalCartella1;
             }
         }, loopSpeed);
 
-        // --- 3. LOGICA DI POSIZIONAMENTO ---
+        // --- LOGICA DI POSIZIONAMENTO ---
         window.addEventListener("scroll", () => {
             const scrollTop = window.scrollY;
             const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
@@ -107,18 +107,15 @@
 
             if (scrollTop > 20) {
                 isScrolling = true;
-                // Mappiamo la posizione esatta dello scroll sul frame desiderato
                 targetFrame = scrollFraction * (totalCartella2 - 1);
             } else {
                 isScrolling = false;
             }
         });
 
-        // --- 4. RENDERING ---
+        // --- RENDERING CONTINUO ---
         function animate() {
             if (isScrolling) {
-                // Inseguiamo il targetFrame. Appena targetFrame smette di cambiare (perché non scrolli), 
-                // currentFrame lo raggiunge in pochissimi millisecondi e si ferma.
                 const diff = targetFrame - currentFrame;
                 currentFrame += diff * smoothness;
 
