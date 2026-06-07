@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scroll & Loop Animation</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #000;
+            font-family: sans-serif;
+            height: 600vh; 
+        }
+
+        .sticky-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain;
+        }
+
+        .info {
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="info">Scorri per esplorare / Resta fermo per il loop</div>
+
+    <div class="sticky-container">
+        <canvas id="animation-canvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("animation-canvas");
+        const context = canvas.getContext("2d");
+
+        // --- 1. CONFIGURAZIONE DELLE FOTO ---
+        const totalCartella1 = 63; // Metti il numero esatto di foto nel LOOP (Cartella 1)
+        const totalCartella2 = 62; // Metti il numero esatto di foto nello SCROLL (Cartella 2)
+        const loopSpeed = 80;      
+
+        // Funzione di supporto per trasformare i numeri in formato a 4 cifre (es. 1 -> 0001)
+        const formatNumber = (num) => String(num).padStart(4, '0');
+
+        const immaginiLoop = [];
+        const immaginiScroll = [];
+
+        // Caricamento Cartella "1" (Loop)
+        for (let i = 1; i <= totalCartella1; i++) {
+            const img = new Image();
+            // Cerca dentro la cartella '1' i file tipo '0001.png'
+            img.src = `1/${formatNumber(i)}.png`;
+            immaginiLoop.push(img);
+        }
+
+        // Caricamento Cartella "2" (Scroll)
+        for (let i = 1; i <= totalCartella2; i++) {
+            const img = new Image();
+            // Cerca dentro la cartella '2' i file tipo '0001.png'
+            img.src = `2/${formatNumber(i)}.png`;
+            immaginiScroll.push(img);
+        }
+
+        // Configura il canvas appena la prima immagine è pronta
+        immaginiLoop[0].onload = () => {
+            canvas.width = immaginiLoop[0].width;
+            canvas.height = immaginiLoop[0].height;
+        };
+
+        // --- 2. LOGICA DEL LOOP AUTOMATICO (Cartella 1) ---
+        let loopIndex = 0;
+        let loopInterval = null;
+
+        function avviaLoopAutomatico() {
+            if (loopInterval) return;
+            loopInterval = setInterval(() => {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(immaginiLoop[loopIndex], 0, 0);
+                loopIndex = (loopIndex + 1) % totalCartella1;
+            }, loopSpeed);
+        }
+
+        function fermaLoopAutomatico() {
+            clearInterval(loopInterval);
+            loopInterval = null;
+        }
+
+        // --- 3. LOGICA DELLO SCROLL (Cartella 2) ---
+        function renderScrollFrame(index) {
+            if (immaginiScroll[index]) {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(immaginiScroll[index], 0, 0);
+            }
+        }
+
+        window.addEventListener("scroll", () => {
+            const scrollTop = window.scrollY;
+            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+            const scrollFraction = scrollTop / maxScroll;
+
+            if (scrollTop <= 5) {
+                avviaLoopAutomatico();
+            } else {
+                fermaLoopAutomatico();
+                
+                const frameIndex = Math.min(
+                    totalCartella2 - 1,
+                    Math.floor(scrollFraction * totalCartella2)
+                );
+                
+                requestAnimationFrame(() => renderScrollFrame(frameIndex));
+            }
+        });
+
+        avviaLoopAutomatico();
+    </script>
+</body>
+</html>
