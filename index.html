@@ -1,44 +1,143 @@
-// --- LOGICA DI CONTROLLO DIRETTO OTTIMIZZATA ---
-        let currentFrame = 0;       
-        let targetFrame = 0;
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scroll Inertia Animation - No Lag</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #000;
+            font-family: sans-serif;
+            height: 300vh; 
+        }
+
+        .sticky-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit: contain;
+        }
+
+        .info {
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+            color: rgba(255,255,255,0.7);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="info">Scorri per dare velocità / Resta fermo per il loop</div>
+
+    <div class="sticky-container">
+        <canvas id="animation-canvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("animation-canvas");
+        const context = canvas.getContext("2d");
+
+        // --- 1. CONFIGURAZIONE ---
+        const totalCartella1 = 63; 
+        const totalCartella2 = 63; 
+        const loopSpeed = 80;      
         
-        // REATTIVITÀ: 
-        // 0.1 = Molto pesante/lento (effetto gomma)
-        // 0.4 = Molto leggero (quasi istantaneo)
-        // 0.8 = Secco (si ferma nell'istante in cui ti fermi tu)
-        const smoothness = 0.45; 
+        // --- FISICA DELL'INERZIA OTTIMIZZATA ---
+        let currentFrame = 0;       
+        let velocity = 0;           
+        const friction = 0.94;        // Leggermente ridotto per rendere la frenata più decisa
+        const scrollSensitivity = 0.04; 
+        const minVelocityStop = 0.15; // SOGLIA ANTI-LAG: Sotto questa velocità, l'animazione si stoppa di colpo evitando lo sfarfallio finale
 
-        // SOGLIA DI TOLERANZA:
-        // Evita che il processore faccia calcoli inutili quando sei quasi arrivato al frame
-        const epsilon = 0.01; 
+        const formatNumber = (num) => String(num).padStart(4, '0');
 
-        // --- 3. LOGICA DI POSIZIONAMENTO ---
+        const immaginiLoop = [];
+        const immaginiScroll = [];
+
+        // Caricamento immagini
+        for (let i = 1; i <= totalCartella1; i++) {
+            const img = new Image();
+            img.src = `1/${formatNumber(i)}.png`;
+            immaginiLoop.push(img);
+        }
+        for (let i = 1; i <= totalCartella2; i++) {
+            const img = new Image();
+            img.src = `2/${formatNumber(i)}.png`;
+            immaginiScroll.push(img);
+        }
+
+        immaginiLoop[0].onload = () => {
+            canvas.width = immaginiLoop[0].width;
+            canvas.height = immaginiLoop[0].height;
+        };
+
+        // --- 2. LOGICA LOOP AUTOMATICO ---
+        let loopIndex = 0;
+        let isScrolling = false;
+
+        setInterval(() => {
+            if (!isScrolling) {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(immaginiLoop[loopIndex], 0, 0);
+                loopIndex = (loopIndex + 1) % totalCartella1;
+            }
+        }, loopSpeed);
+
+        // --- 3. LOGICA DI SPINTA (SCROLL) ---
+        let lastScrollTop = 0;
+
         window.addEventListener("scroll", () => {
             const scrollTop = window.scrollY;
-            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-            
-            // Calcolo ultra-preciso della posizione
-            const scrollFraction = Math.max(0, Math.min(1, scrollTop / maxScroll));
+            const delta = scrollTop - lastScrollTop;
+            lastScrollTop = scrollTop;
 
             if (scrollTop > 10) {
                 isScrolling = true;
-                targetFrame = scrollFraction * (totalCartella2 - 1);
+                velocity += delta * scrollSensitivity;
             } else {
                 isScrolling = false;
+                velocity = 0;
             }
         });
 
-        // --- 4. RENDERING AD ALTE PRESTAZIONI ---
+        // --- 4. MOTORE FISICO CORRETTO ---
         function animate() {
             if (isScrolling) {
-                const diff = targetFrame - currentFrame;
+                // Applichiamo l'attrito
+                velocity *= friction;
 
-                // Se la differenza è minima, saltiamo direttamente al target 
-                // così non senti quell'effetto di "trascinamento lento" alla fine
-                if (Math.abs(diff) < epsilon) {
-                    currentFrame = targetFrame;
-                } else {
-                    currentFrame += diff * smoothness;
+                // TRUCCO ANTI-LAG: Se la velocità è minima, azzerala subito. 
+                // Questo evita che i frame si "trascinino" pixel dopo pixel in modo scattoso.
+                if (Math.abs(velocity) < minVelocityStop) {
+                    velocity = 0;
+                }
+
+                currentFrame += velocity;
+
+                // Limiti fisici delle cartelle
+                if (currentFrame < 0) {
+                    currentFrame = 0;
+                    velocity = 0;
+                }
+                if (currentFrame > totalCartella2 - 1) {
+                    currentFrame = totalCartella2 - 1;
+                    velocity = 0;
                 }
 
                 const frameToDraw = Math.round(currentFrame);
@@ -47,8 +146,15 @@
                 if (immaginiScroll[frameToDraw]) {
                     context.drawImage(immaginiScroll[frameToDraw], 0, 0);
                 }
+
+                if (velocity === 0 && window.scrollY <= 10) {
+                    isScrolling = false;
+                }
             }
             requestAnimationFrame(animate);
         }
 
         animate();
+    </script>
+</body>
+</html>
