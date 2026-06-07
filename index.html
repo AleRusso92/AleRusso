@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Animazione 1920x1080 - PNG</title>
+    <title>Animazione 1920x1080 - 24 FPS - PNG</title>
     <style>
         body, html {
             margin: 0;
@@ -65,7 +65,8 @@
             frames: 63,
             width: 1920,
             height: 1080,
-            ext: 'png' // <-- Impostato su .png
+            ext: 'png',
+            fps: 24 // Impostato a 24 fotogrammi al secondo
         };
 
         // --- Utility per caricare immagini ---
@@ -73,7 +74,6 @@
             const images = [];
             for (let i = 1; i <= count; i++) {
                 const img = new Image();
-                // Formatta il numero con zeri iniziali (es. 1 diventa "0001", 63 diventa "0063")
                 const fileName = i.toString().padStart(4, '0');
                 img.src = `./${folder}/${fileName}.${config.ext}`;
                 images.push(img);
@@ -95,16 +95,29 @@
         const loop = setupCanvas('loopCanvas');
         const scroll = setupCanvas('scrollCanvas');
 
-        // --- Animazione LOOP (Cartella 1) ---
+        // --- Animazione LOOP (Cartella 1) a 24 FPS ---
         let currentLoopFrame = 0;
-        function animateLoop() {
-            loop.ctx.clearRect(0, 0, config.width, config.height);
-            const img = images1[currentLoopFrame];
-            if (img && img.complete) {
-                loop.ctx.drawImage(img, 0, 0);
+        let then = performance.now();
+        const fpsInterval = 1000 / config.fps;
+
+        function animateLoop(now) {
+            requestAnimationFrame(animateLoop);
+
+            // Calcola il tempo trascorso
+            const elapsed = now - then;
+
+            // Se è passato abbastanza tempo, disegna il frame successivo
+            if (elapsed > fpsInterval) {
+                // Allinea il timer per evitare discrepanze
+                then = now - (elapsed % fpsInterval);
+
+                loop.ctx.clearRect(0, 0, config.width, config.height);
+                const img = images1[currentLoopFrame];
+                if (img && img.complete) {
+                    loop.ctx.drawImage(img, 0, 0);
+                }
+                currentLoopFrame = (currentLoopFrame + 1) % config.frames;
             }
-            currentLoopFrame = (currentLoopFrame + 1) % config.frames;
-            requestAnimationFrame(() => setTimeout(animateLoop, 33)); // ~30fps
         }
 
         // --- Animazione SCROLL (Cartella 2) ---
@@ -127,8 +140,8 @@
 
         // Inizializzazione
         window.onload = () => {
-            animateLoop();
-            updateScrollFrame();
+            requestAnimationFrame(animateLoop); // Fa partire il loop con il controllo del tempo
+            updateScrollFrame(); // Mostra il primo frame dello scroll
         };
 
         window.addEventListener('scroll', updateScrollFrame);
