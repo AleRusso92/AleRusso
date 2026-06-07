@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scroll Animation - Smooth & Fluid</title>
+    <title>Scroll Animation - Ultra Fluid & Realtime</title>
     <style>
         body {
             margin: 0;
             background-color: #000;
             font-family: sans-serif;
-            /* Altezza della pagina: più è alta, più lo scroll sarà lento e fluido */
-            height: 900vh; 
+            /* AUMENTA O DIMINUISCI QUESTO VALORE:
+               Più la pagina è alta (es. 600vh), più immagini scorrerai con un leggero movimento.
+               Trova il compromesso perfetto per la fluidità del tuo set di immagini.
+            */
+            height: 450vh; 
         }
 
         .sticky-container {
@@ -60,15 +63,7 @@
         const totalCartella2 = 63; 
         const loopSpeed = 80;      
         
-        // --- FISICA INERZIALE UNIFICATA ---
-        let currentFrame = 0;       
         let targetFrame = 0;
-        
-        // smoothness gestisce l'effetto "calamita/morbidezza" dell'animazione.
-        // Più è basso (es. 0.05), più l'animazione sarà lenta e burrosa a inseguire lo scroll.
-        // Più è alto (es. 0.2), più sarà reattiva e incollata al dito/rotella.
-        const smoothness = 0.15; 
-
         const formatNumber = (num) => String(num).padStart(4, '0');
 
         const immaginiLoop = [];
@@ -106,52 +101,40 @@
             }
         }, loopSpeed);
 
-        // --- 3. LOGICA DI CALCOLO POSIZIONE (Unificata PC e Touch) ---
+        // --- 3. AGGIORNAMENTO IN TEMPO REALE AL 100% ---
         window.addEventListener("scroll", () => {
             const scrollTop = window.scrollY;
             const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-            
-            // Evita divisioni per zero se la pagina non è abbastanza alta
             const scrollFraction = maxScroll > 0 ? scrollTop / maxScroll : 0;
 
-            // Se l'utente ha scollato più di 10px, passiamo ai frame di scroll
             if (scrollTop > 10) {
                 isScrolling = true;
-                targetFrame = scrollFraction * (totalCartella2 - 1);
+                // Calcola il frame esatto corrispondente alla posizione dello scroll
+                targetFrame = Math.floor(scrollFraction * (totalCartella2 - 1));
             } else {
-                // Se torna esattamente in cima, resetta e fa ripartire il loop
                 isScrolling = false;
                 targetFrame = 0;
             }
         }, { passive: true });
 
 
-        // --- 4. MOTORE DI RENDERING ---
+        // --- 4. MOTORE DI RENDERING (Senza ritardi indotti) ---
+        let lastRenderedFrame = -1;
+
         function animate() {
             if (isScrolling) {
-                const diff = targetFrame - currentFrame;
-                
-                // Inseguiamo il target frame con l'effetto volano (smoothness)
-                if (Math.abs(diff) < 0.01) {
-                    currentFrame = targetFrame;
-                } else {
-                    currentFrame += diff * smoothness;
-                }
-
-                // Arrotondiamo per prendere il fotogramma intero più vicino
-                const frameToDraw = Math.max(0, Math.min(totalCartella2 - 1, Math.round(currentFrame)));
-
-                context.clearRect(0, 0, canvas.width, canvas.height);
-                if (immaginiScroll[frameToDraw]) {
-                    context.drawImage(immaginiScroll[frameToDraw], 0, 0);
+                // Disegna solo se il frame è effettivamente cambiato, per non sprecare risorse
+                if (targetFrame !== lastRenderedFrame) {
+                    const frameToDraw = Math.max(0, Math.min(totalCartella2 - 1, targetFrame));
+                    
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    if (immaginiScroll[frameToDraw]) {
+                        context.drawImage(immaginiScroll[frameToDraw], 0, 0);
+                    }
+                    lastRenderedFrame = frameToDraw;
                 }
             } else {
-                // Se non stiamo scrollando, facciamo scivolare dolcemente currentFrame a 0
-                if (currentFrame > 0.1) {
-                    currentFrame += (0 - currentFrame) * smoothness;
-                } else {
-                    currentFrame = 0;
-                }
+                lastRenderedFrame = -1; // Reset per quando si ferma in cima
             }
             
             requestAnimationFrame(animate);
