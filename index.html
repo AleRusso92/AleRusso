@@ -9,7 +9,8 @@
             margin: 0;
             background-color: #000;
             font-family: sans-serif;
-            height: 600vh; 
+            /* MODIFICATO: Abbassando questo valore, lo scroll diventa più corto e l'animazione più veloce */
+            height: 200vh; 
         }
 
         .sticky-container {
@@ -54,11 +55,10 @@
         const context = canvas.getContext("2d");
 
         // --- 1. CONFIGURAZIONE DELLE FOTO ---
-        const totalCartella1 = 63; // Metti il numero esatto di foto nel LOOP (Cartella 1)
-        const totalCartella2 = 62; // Metti il numero esatto di foto nello SCROLL (Cartella 2)
+        const totalCartella1 = 63; 
+        const totalCartella2 = 63; 
         const loopSpeed = 80;      
 
-        // Funzione di supporto per trasformare i numeri in formato a 4 cifre (es. 1 -> 0001)
         const formatNumber = (num) => String(num).padStart(4, '0');
 
         const immaginiLoop = [];
@@ -67,7 +67,6 @@
         // Caricamento Cartella "1" (Loop)
         for (let i = 1; i <= totalCartella1; i++) {
             const img = new Image();
-            // Cerca dentro la cartella '1' i file tipo '0001.png'
             img.src = `1/${formatNumber(i)}.png`;
             immaginiLoop.push(img);
         }
@@ -75,12 +74,10 @@
         // Caricamento Cartella "2" (Scroll)
         for (let i = 1; i <= totalCartella2; i++) {
             const img = new Image();
-            // Cerca dentro la cartella '2' i file tipo '0001.png'
             img.src = `2/${formatNumber(i)}.png`;
             immaginiScroll.push(img);
         }
 
-        // Configura il canvas appena la prima immagine è pronta
         immaginiLoop[0].onload = () => {
             canvas.width = immaginiLoop[0].width;
             canvas.height = immaginiLoop[0].height;
