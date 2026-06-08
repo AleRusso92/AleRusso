@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Animazione Trigger su Click</title>
+    <title>Animazione Video Smooth</title>
     <style>
         * {
             box-sizing: border-box;
@@ -13,47 +13,43 @@
             padding: 0;
             background-color: #000000;
             color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow: hidden; /* Blocca lo scroll della pagina */
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden; /* Blocca lo scroll */
         }
 
-        /* Contenitore principale a tutto schermo */
         .animation-viewport {
             position: relative;
             width: 100vw;
             height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             overflow: hidden;
         }
 
-        /* Gestione formato 1920x1080 Full Screen */
-        .img-container {
+        /* I video riempiono lo schermo e si sovrappongono perfettamente */
+        .video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            object-fit: cover; /* Mantiene il full screen 1920x1080. Cambia in 'contain' se non vuoi tagli */
+            transition: opacity 0.2s ease; /* Sfocatura leggerissima opzionale per il cambio */
         }
 
-        .img-container img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover; /* Cambia in 'contain' se non vuoi tagliare i bordi su schermi non 16:9 */
+        /* Video 2 parte nascosto */
+        #video-2 {
+            opacity: 0;
+            pointer-events: none;
         }
 
-        /* Interfaccia utente sovrapposta */
+        /* Interfaccia utente */
         .ui-overlay {
             position: absolute;
-            bottom: 50px; /* Posizionato in basso */
+            bottom: 50px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 10;
-            text-align: center;
         }
 
-        /* Stile del pulsante (Modificabile a piacimento) */
         .trigger-btn {
             background-color: #ffffff;
             color: #000000;
@@ -61,8 +57,6 @@
             padding: 15px 30px;
             font-size: 1rem;
             font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
             border-radius: 50px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);
@@ -72,10 +66,8 @@
         .trigger-btn:hover {
             background-color: #00ffcc;
             transform: scale(1.05);
-            box-shadow: 0 4px 20px rgba(0, 255, 204, 0.5);
         }
 
-        /* Stato disattivato quando l'animazione 2 è finita */
         .trigger-btn:disabled {
             background-color: #333333;
             color: #666666;
@@ -89,62 +81,41 @@
 
     <div class="animation-viewport">
         <div class="ui-overlay">
-            <button id="start-anim-2" class="trigger-btn">Avvia Animazione 2</button>
+            <button id="start-video-2" class="trigger-btn">Avvia Video 2</button>
         </div>
         
-        <div class="img-container">
-            <img id="anim-target" src="1/0001.png" alt="Animazione">
+        <div class="video-container">
+            <video id="video-1" src="1.mp4" autoplay loop muted playsinline></video>
+            
+            <video id="video-2" src="2.mp4" muted playsinline></video>
         </div>
     </div>
 
     <script>
-        const imgTarget = document.getElementById('anim-target');
-        const btnTrigger = document.getElementById('start-anim-2');
+        const video1 = document.getElementById('video-1');
+        const video2 = document.getElementById('video-2');
+        const btnTrigger = document.getElementById('start-video-2');
 
-        const totalFrames = 64;
-        const fps = 24; // Velocità fotogrammi
-        const pad = (num) => String(num).padStart(4, '0');
-
-        let currentFrame = 1;
-        let currentFolder = '1'; // Parte con la cartella 1
-
-        // 1. PRE-CARICAMENTO
-        for (let i = 1; i <= totalFrames; i++) {
-            const img1 = new Image(); img1.src = `1/${pad(i)}.png`;
-            const img2 = new Image(); img2.src = `2/${pad(i)}.png`;
-        }
-
-        // 2. TIMING DELL'ANIMAZIONE
-        const loopTimer = setInterval(() => {
-            if (currentFolder === '1') {
-                // Loop continuo per la cartella 1
-                currentFrame = (currentFrame % totalFrames) + 1;
-                imgTarget.src = `1/${pad(currentFrame)}.png`;
-            } else if (currentFolder === '2') {
-                // Riproduzione singola per la cartella 2
-                if (currentFrame < totalFrames) {
-                    currentFrame++;
-                    imgTarget.src = `2/${pad(currentFrame)}.png`;
-                } else {
-                    // Arrivato al frame 64, ferma il timer per sempre
-                    clearInterval(loopTimer);
-                    btnTrigger.innerText = "Animazione Conclusa";
-                    btnTrigger.disabled = true;
-                }
-            }
-        }, 1000 / fps);
-
-        // 3. EVENTO CLICK SUL PULSANTE
         btnTrigger.addEventListener('click', () => {
-            if (currentFolder === '1') {
-                currentFolder = '2';
-                currentFrame = 1; // Resetta il conteggio per partire dal primo frame di "2"
-                imgTarget.src = `2/${pad(currentFrame)}.png`; // Cambia subito il primo frame
-                
-                // Modifiche estetiche temporanee al pulsante durante la riproduzione
-                btnTrigger.innerText = "Riproduzione...";
-                btnTrigger.style.pointerEvents = "none"; // Impedisce click multipli
-            }
+            // 1. Avvia il secondo video in background per farlo trovare pronto
+            video2.play();
+            
+            // 2. Nascondi il primo video e mostra il secondo
+            video1.style.opacity = '0';
+            video2.style.opacity = '1';
+            
+            // 3. Ferma il primo video per risparmiare risorse CPU
+            video1.pause();
+
+            // Modifica il pulsante per mostrare lo stato di riproduzione
+            btnTrigger.innerText = "Riproduzione...";
+            btnTrigger.style.pointerEvents = "none";
+        });
+
+        // Ascolta quando il Video 2 arriva alla fine del suo unico filmato
+        video2.addEventListener('ended', () => {
+            btnTrigger.innerText = "Video Concluso";
+            btnTrigger.disabled = true;
         });
     </script>
 
