@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Full Screen Video Switcher</title>
+    <title>Full Screen Video Switcher - Real Fullscreen</title>
     <style>
         /* Reset totale per eliminare qualsiasi bordo o barra di scorrimento */
         * {
@@ -30,7 +30,7 @@
             height: auto;
             z-index: 1;
             transform: translate(-50%, -50%);
-            object-fit: cover;
+            object-fit: cover; /* Riempie tutto lo schermo adattandosi senza distorcere */
             transition: opacity 0.3s ease;
             opacity: 1;
         }
@@ -73,14 +73,14 @@
 <body>
 
     <video id="video1" autoplay loop muted playsinline>
-        <source src="1.mkv" type="video/mp4">
+        <source src="1.mp4" type="video/mp4">
     </video>
 
     <video id="video2" class="hidden" muted playsinline>
-        <source src="2.mkv" type="video/mp4">
+        <source src="2.mp4" type="video/mp4">
     </video>
 
-    <button id="actionBtn">Attiva Seconda Animazione</button>
+    <button id="actionBtn">Entra in Schermo Intero e Prenota Cambio</button>
 
     <script>
         const v1 = document.getElementById('video1');
@@ -93,8 +93,18 @@
         btn.addEventListener('click', () => {
             if (cambioPrenotato) return;
             
+            // --- MODIFICA: ATTIVAZIONE DELLO SCHERMO INTERO REALE ---
+            // Richiede obbligatoriamente un'interazione utente (il click sul bottone)
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log("Impossibile andare a schermo intero:", err);
+                });
+            } else if (document.documentElement.webkitRequestFullscreen) { /* Safari / iOS */
+                document.documentElement.webkitRequestFullscreen();
+            }
+            
             cambioPrenotato = true;
-            v1.loop = false; // Dice al browser di non looppare più (se supportato)
+            v1.loop = false; // Dice al browser di non riprodurre il primo video all'infinito
             
             btn.classList.add('waiting');
             btn.innerText = "Cambio al termine dell'animazione...";
@@ -109,11 +119,7 @@
                     return;
                 }
                 
-                /* FALLBACK PER FILE .MKV: 
-                  Se il browser ignora 'loop=false' o non conosce la durata del video,
-                  ci accorgiamo che il video è appena ricominciato da capo perché il tempo attuale (currentTime)
-                  torna indietro rispetto all'ultimo secondo registrato (lastTime).
-                */
+                // Fallback di sicurezza: se il video ricomincia da capo
                 if (v1.currentTime < lastTime) {
                     avviaSecondoVideo();
                     return;
@@ -122,7 +128,7 @@
             lastTime = v1.currentTime;
         });
 
-        // Sicurezza finale nel caso il browser legga correttamente la fine del file
+        // Sicurezza finale nel caso il browser rilevi la fine naturale del file
         v1.addEventListener('ended', () => {
             if (cambioPrenotato) {
                 avviaSecondoVideo();
@@ -136,7 +142,7 @@
             v2.classList.remove('hidden');
             v2.play();
             
-            btn.style.display = 'none'; // Sparisce il bottone
+            btn.style.display = 'none'; // Il bottone scompare definitivamente
         }
     </script>
 </body>
