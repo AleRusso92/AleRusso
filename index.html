@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Ale</title>
+    <title>Portfolio Ale - Video Switcher</title>
     <style>
-        
+        /* Reset totale per eliminare qualsiasi bordo o barra di scorrimento */
         * {
             box-sizing: border-box;
         }
@@ -19,6 +19,7 @@
             font-family: sans-serif;
         }
 
+        /* CSS per il full screen totale */
         video {
             position: fixed;
             top: 50%;
@@ -29,7 +30,7 @@
             height: auto;
             z-index: 1;
             transform: translate(-50%, -50%);
-            object-fit: cover; 
+            object-fit: cover; /* Riempie tutto lo schermo adattandosi senza distorcere */
             transition: opacity 0.3s ease;
             opacity: 1;
         }
@@ -39,6 +40,7 @@
             pointer-events: none;
         }
 
+        /* Bottone in primo piano */
         #actionBtn {
             position: fixed;
             bottom: 40px;
@@ -78,56 +80,68 @@
         <source src="2.mp4" type="video/mp4">
     </video>
 
-    <button id="actionBtn">dio can</button>
+    <button id="actionBtn">Entra in Schermo Intero e Prenota Cambio</button>
 
-    <script>
-        const v1 = document.getElementById('video1');
-        const v2 = document.getElementById('video2');
-        const btn = document.getElementById('actionBtn');
-        
-        let cambioPrenotato = false;
-        let lastTime = 0;
+<script>
+const v1 = document.getElementById('video1');
+const v2 = document.getElementById('video2');
+const btn = document.getElementById('actionBtn');
 
-        btn.addEventListener('click', () => {
-            if (cambioPrenotato) return;
-  
-            cambioPrenotato = true;
-            v1.loop = false;
-            
-            btn.classList.add('waiting');
-            btn.innerText = "Cambio al termine dell'animazione...";
-        });
+let cambioPrenotato = false;
+let lastTime = 0;
 
-        v1.addEventListener('timeupdate', () => {
-            if (cambioPrenotato) {
-                if (v1.duration && v1.currentTime >= v1.duration - 0.2) {
-                    avviaSecondoVideo();
-                    return;
-                }
-                
-                if (v1.currentTime < lastTime) {
-                    avviaSecondoVideo();
-                    return;
-                }
-            }
-            lastTime = v1.currentTime;
-        });
+btn.addEventListener('click', () => {
+    if (cambioPrenotato) return;
 
-        v1.addEventListener('ended', () => {
-            if (cambioPrenotato) {
-                avviaSecondoVideo();
-            }
-        });
+    cambioPrenotato = true;
+    v1.loop = false; // Dice al browser di interrompere il loop al termine del video
 
-        function avviaSecondoVideo() {
-            v1.pause();
-            v1.classList.add('hidden');
-            
-            v2.classList.remove('hidden');
-            v2.play();
-            
-            btn.style.display = 'none';
+    btn.classList.add('waiting');
+    btn.innerText = "Cambio al termine dell'animazione...";
+});
+
+// Controllo sul tempo del video
+v1.addEventListener('timeupdate', () => {
+    if (cambioPrenotato) {
+        // Sincronizzazione: mancano meno di 0.2 secondi alla fine
+        if (v1.duration && v1.currentTime >= v1.duration - 0.2) {
+            avviaSecondoVideo();
+            return;
         }
-    </script>
+
+        /* Fallback di sicurezza: se il browser salta il controllo del tempo 
+          e il video ricomincia da capo prima che JS se ne accorga 
+        */
+        if (v1.currentTime < lastTime) {
+            avviaSecondoVideo();
+            return;
+        }
+    }
+    lastTime = v1.currentTime;
+});
+
+// Sicurezza finale nel caso il browser rilevi la fine naturale del file
+v1.addEventListener('ended', () => {
+    if (cambioPrenotato) {
+        avviaSecondoVideo();
+    }
+});
+
+function avviaSecondoVideo() {
+    v1.pause();
+    v1.classList.add('hidden');
+
+    v2.classList.remove('hidden');
+    
+    // Rimuoviamo il muted prima del play se vuoi che il secondo video abbia l'audio
+    // v2.muted = false; 
+    
+    v2.play().catch(error => {
+        console.log("Riproduzione bloccata dal browser: richiede interazione utente.", error);
+    });
+
+    btn.style.display = 'none'; // Il bottone scompare definitivamente
+}
+</script>
 </body>
 </html>
