@@ -92,17 +92,7 @@
 
         btn.addEventListener('click', () => {
             if (cambioPrenotato) return;
-            
-            // --- MODIFICA: ATTIVAZIONE DELLO SCHERMO INTERO REALE ---
-            // Richiede obbligatoriamente un'interazione utente (il click sul bottone)
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log("Impossibile andare a schermo intero:", err);
-                });
-            } else if (document.documentElement.webkitRequestFullscreen) { /* Safari / iOS */
-                document.documentElement.webkitRequestFullscreen();
-            }
-            
+  
             cambioPrenotato = true;
             v1.loop = false; // Dice al browser di non riprodurre il primo video all'infinito
             
