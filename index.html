@@ -30,7 +30,7 @@
             height: auto;
             z-index: 1;
             transform: translate(-50%, -50%);
-            object-fit: cover; /* Riempie tutto lo schermo adattandosi senza distorcere */
+            object-fit: cover;
             transition: opacity 0.3s ease;
             opacity: 1;
         }
@@ -72,7 +72,7 @@
 </head>
 <body>
 
-    <video id="video1" autoplay loop muted playsinline>
+    <video id="video1" autoplay muted playsinline>
         <source src="1.mp4" type="video/mp4">
     </video>
 
@@ -80,67 +80,109 @@
         <source src="2.mp4" type="video/mp4">
     </video>
 
+    <video id="video3" class="hidden" muted playsinline>
+        <source src="3.mp4" type="video/mp4">
+    </video>
+
     <button id="actionBtn">Entra in Schermo Intero e Prenota Cambio</button>
 
 <script>
 const v1 = document.getElementById('video1');
 const v2 = document.getElementById('video2');
+const v3 = document.getElementById('video3');
 const btn = document.getElementById('actionBtn');
 
 let cambioPrenotato = false;
-let lastTime = 0;
+let loopCounter = 0;
+const targetLoop = 3; // Fisso a 3 loop del video 1 prima di passare al video 3
+
+// Margine di anticipo: 1 frame a 25 fps equivale a 0.04 secondi
+const anticipoFrame = 0.04; 
 
 btn.addEventListener('click', () => {
     if (cambioPrenotato) return;
-
     cambioPrenotato = true;
-    v1.loop = false; // Dice al browser di interrompere il loop al termine del video
-
     btn.classList.add('waiting');
     btn.innerText = "Cambio al termine dell'animazione...";
 });
 
-// Controllo sul tempo del video
+// Controllo del tempo per applicare l'anticipo del frame
 v1.addEventListener('timeupdate', () => {
-    if (cambioPrenotato) {
-        // Sincronizzazione: mancano meno di 0.2 secondi alla fine
-        if (v1.duration && v1.currentTime >= v1.duration - 0.2) {
-            avviaSecondoVideo();
-            return;
-        }
+    if (!v1.duration) return;
 
-        /* Fallback di sicurezza: se il browser salta il controllo del tempo 
-          e il video ricomincia da capo prima che JS se ne accorga 
-        */
-        if (v1.currentTime < lastTime) {
+    // Se mancano 0.04 secondi o meno alla fine del video
+    if (v1.currentTime >= v1.duration - anticipoFrame) {
+        
+        if (cambioPrenotato) {
+            // Se l'utente ha cliccato il pulsante, diamo la priorità al video 2
             avviaSecondoVideo();
-            return;
+        } else {
+            // Gestione dei loop regolari del video 1
+            loopCounter++;
+            console.log(`Loop completato. Conteggio: ${loopCounter}/${targetLoop}`);
+
+            if (loopCounter >= targetLoop) {
+                avviaTerzoVideo();
+            } else {
+                // Forza il riavvio del video 1 un frame in anticipo
+                v1.currentTime = 0;
+                v1.play().catch(e => console.log(e));
+            }
         }
     }
-    lastTime = v1.currentTime;
 });
 
-// Sicurezza finale nel caso il browser rilevi la fine naturale del file
+// Ruota di scorta nel caso in cui l'evento 'timeupdate' non intercetti il millisecondo esatto
 v1.addEventListener('ended', () => {
     if (cambioPrenotato) {
         avviaSecondoVideo();
+    } else {
+        loopCounter++;
+        if (loopCounter >= targetLoop) {
+            avviaTerzoVideo();
+        } else {
+            v1.currentTime = 0;
+            v1.play().catch(e => console.log(e));
+        }
     }
+});
+
+// Quando il video 3 finisce, ritorna al ciclo principale di video 1
+v3.addEventListener('ended', () => {
+    tornaAlVideoUno();
 });
 
 function avviaSecondoVideo() {
     v1.pause();
+    v3.pause();
     v1.classList.add('hidden');
+    v3.classList.add('hidden');
 
     v2.classList.remove('hidden');
-    
-    // Rimuoviamo il muted prima del play se vuoi che il secondo video abbia l'audio
-    // v2.muted = false; 
-    
-    v2.play().catch(error => {
-        console.log("Riproduzione bloccata dal browser: richiede interazione utente.", error);
-    });
+    v2.play().catch(error => console.log("Errore riproduzione video 2:", error));
 
-    btn.style.display = 'none'; // Il bottone scompare definitivamente
+    btn.style.display = 'none'; // Nasconde il pulsante
+}
+
+function avviaTerzoVideo() {
+    v1.pause();
+    v1.classList.add('hidden');
+    
+    v3.classList.remove('hidden');
+    v3.currentTime = 0;
+    v3.play().catch(error => console.log("Errore riproduzione video 3:", error));
+}
+
+function tornaAlVideoUno() {
+    v3.pause();
+    v3.classList.add('hidden');
+    
+    // Resetta il contatore per contare altri 3 loop di v1
+    loopCounter = 0;
+
+    v1.classList.remove('hidden');
+    v1.currentTime = 0;
+    v1.play().catch(error => console.log("Errore ritorno a video 1:", error));
 }
 </script>
 </body>
