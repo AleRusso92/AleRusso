@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portfolio Ale - Video Switcher</title>
     <style>
+        /* Reset totale per eliminare qualsiasi bordo o barra di scorrimento */
         * {
             box-sizing: border-box;
         }
@@ -18,6 +19,7 @@
             font-family: sans-serif;
         }
 
+        /* CSS per il full screen totale */
         video {
             position: fixed;
             top: 50%;
@@ -38,6 +40,7 @@
             pointer-events: none;
         }
 
+        /* Bottone in primo piano */
         #actionBtn {
             position: fixed;
             bottom: 40px;
@@ -78,7 +81,6 @@
     </video>
 
     <video id="video3" class="hidden" muted playsinline>
-        <source src="3.mkv" type="video/x-matroska">
         <source src="3.mp4" type="video/mp4">
     </video>
 
@@ -92,9 +94,9 @@ const btn = document.getElementById('actionBtn');
 
 let cambioPrenotato = false;
 let loopCounter = 0;
-const targetLoop = 3; // Impostato fisso a 3 loop
+const targetLoop = 3; // Fisso a 3 loop del video 1 prima di passare al video 3
 
-// Calcolo di 1 frame prima (ipotizzando un video a 25 fps, 1 frame dura 0.04 secondi)
+// Margine di anticipo: 1 frame a 25 fps equivale a 0.04 secondi
 const anticipoFrame = 0.04; 
 
 btn.addEventListener('click', () => {
@@ -104,25 +106,25 @@ btn.addEventListener('click', () => {
     btn.innerText = "Cambio al termine dell'animazione...";
 });
 
-// Controllo continuo del tempo per l'anticipo del frame
+// Controllo del tempo per applicare l'anticipo del frame
 v1.addEventListener('timeupdate', () => {
     if (!v1.duration) return;
 
-    // Verifica se siamo arrivati a "un frame prima della fine"
+    // Se mancano 0.04 secondi o meno alla fine del video
     if (v1.currentTime >= v1.duration - anticipoFrame) {
         
         if (cambioPrenotato) {
-            // Se l'utente ha premuto il bottone, vai al video 2
+            // Se l'utente ha cliccato il pulsante, diamo la priorità al video 2
             avviaSecondoVideo();
         } else {
-            // Altrimenti gestiamo i loop del video 1 e l'interruzione per il video 3
+            // Gestione dei loop regolari del video 1
             loopCounter++;
             console.log(`Loop completato. Conteggio: ${loopCounter}/${targetLoop}`);
 
             if (loopCounter >= targetLoop) {
                 avviaTerzoVideo();
             } else {
-                // Reset manuale del loop un frame prima per video 1
+                // Forza il riavvio del video 1 un frame in anticipo
                 v1.currentTime = 0;
                 v1.play().catch(e => console.log(e));
             }
@@ -130,7 +132,7 @@ v1.addEventListener('timeupdate', () => {
     }
 });
 
-// Fallback nel caso il timeupdate salti il millisecondo esatto
+// Ruota di scorta nel caso in cui l'evento 'timeupdate' non intercetti il millisecondo esatto
 v1.addEventListener('ended', () => {
     if (cambioPrenotato) {
         avviaSecondoVideo();
@@ -145,7 +147,7 @@ v1.addEventListener('ended', () => {
     }
 });
 
-// Quando il video 3 finisce (o un frame prima se preferisci, gestito qui all'ended per stacco netto)
+// Quando il video 3 finisce, ritorna al ciclo principale di video 1
 v3.addEventListener('ended', () => {
     tornaAlVideoUno();
 });
@@ -157,9 +159,9 @@ function avviaSecondoVideo() {
     v3.classList.add('hidden');
 
     v2.classList.remove('hidden');
-    v2.play().catch(error => console.log("Errore video 2:", error));
+    v2.play().catch(error => console.log("Errore riproduzione video 2:", error));
 
-    btn.style.display = 'none';
+    btn.style.display = 'none'; // Nasconde il pulsante
 }
 
 function avviaTerzoVideo() {
@@ -168,14 +170,14 @@ function avviaTerzoVideo() {
     
     v3.classList.remove('hidden');
     v3.currentTime = 0;
-    v3.play().catch(error => console.log("Errore video 3:", error));
+    v3.play().catch(error => console.log("Errore riproduzione video 3:", error));
 }
 
 function tornaAlVideoUno() {
     v3.pause();
     v3.classList.add('hidden');
     
-    // Reset del contatore a 0 per ricominciare i 3 loop di v1
+    // Resetta il contatore per contare altri 3 loop di v1
     loopCounter = 0;
 
     v1.classList.remove('hidden');
