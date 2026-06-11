@@ -80,67 +80,113 @@
         <source src="2.mp4" type="video/mp4">
     </video>
 
+    <video id="video3" class="hidden" muted playsinline>
+        <source src="3.mkv" type="video/x-matroska">
+        <source src="3.mp4" type="video/mp4"> </video>
+
     <button id="actionBtn">Entra in Schermo Intero e Prenota Cambio</button>
 
 <script>
 const v1 = document.getElementById('video1');
 const v2 = document.getElementById('video2');
+const v3 = document.getElementById('video3');
 const btn = document.getElementById('actionBtn');
 
 let cambioPrenotato = false;
 let lastTime = 0;
 
+// CONTROLLO LOOP VIDEO 3
+let loopCounter = 0;
+// Genera un numero casuale di loop richiesti prima di mostrare il video 3 (es. tra 3 e 5 loop, media di 4)
+let targetLoop = Math.floor(Math.random() * 3) + 3; 
+
 btn.addEventListener('click', () => {
     if (cambioPrenotato) return;
 
     cambioPrenotato = true;
-    v1.loop = false; // Dice al browser di interrompere il loop al termine del video
+    v1.loop = false; // Interrompe il loop al termine del video per andare al video 2
 
     btn.classList.add('waiting');
     btn.innerText = "Cambio al termine dell'animazione...";
 });
 
-// Controllo sul tempo del video
+// Controllo sul tempo del video 1
 v1.addEventListener('timeupdate', () => {
     if (cambioPrenotato) {
-        // Sincronizzazione: mancano meno di 0.2 secondi alla fine
+        // Sincronizzazione per il video 2: mancano meno di 0.2 secondi alla fine
         if (v1.duration && v1.currentTime >= v1.duration - 0.2) {
             avviaSecondoVideo();
             return;
         }
 
-        /* Fallback di sicurezza: se il browser salta il controllo del tempo 
-          e il video ricomincia da capo prima che JS se ne accorga 
-        */
+        /* Fallback di sicurezza per il video 2 */
         if (v1.currentTime < lastTime) {
             avviaSecondoVideo();
             return;
+        }
+    } else {
+        /* GESTIONE CASUALE DEL VIDEO 3 
+           Se il tempo attuale torna indietro rispetto all'ultimo frame registrato,
+           significa che il video 1 ha appena completato un loop naturale ed è ricominciato.
+        */
+        if (v1.currentTime < lastTime) {
+            loopCounter++;
+            console.log(`Loop completati: ${loopCounter} su ${targetLoop}`);
+            
+            if (loopCounter >= targetLoop) {
+                avviaTerzoVideo();
+            }
         }
     }
     lastTime = v1.currentTime;
 });
 
-// Sicurezza finale nel caso il browser rilevi la fine naturale del file
+// Sicurezza finale nel caso il browser rilevi la fine naturale del file (e loop = false)
 v1.addEventListener('ended', () => {
     if (cambioPrenotato) {
         avviaSecondoVideo();
     }
 });
 
+// Quando il video 3 finisce, torna automaticamente al video 1
+v3.addEventListener('ended', () => {
+    tornaAlVideoUno();
+});
+
+
 function avviaSecondoVideo() {
     v1.pause();
+    v3.pause(); // Per sicurezza, se si clicca mentre c'è il video 3
     v1.classList.add('hidden');
+    v3.classList.add('hidden');
 
     v2.classList.remove('hidden');
-    
-    // Rimuoviamo il muted prima del play se vuoi che il secondo video abbia l'audio
-    // v2.muted = false; 
-    
-    v2.play().catch(error => {
-        console.log("Riproduzione bloccata dal browser: richiede interazione utente.", error);
-    });
+    v2.play().catch(error => console.log("Errore riproduzione video 2:", error));
 
     btn.style.display = 'none'; // Il bottone scompare definitivamente
+}
+
+function avviaTerzoVideo() {
+    v1.pause();
+    v1.classList.add('hidden');
+    
+    v3.classList.remove('hidden');
+    v3.currentTime = 0;
+    v3.play().catch(error => console.log("Errore riproduzione video 3:", error));
+}
+
+function tornaAlVideoUno() {
+    v3.pause();
+    v3.classList.add('hidden');
+    
+    // Resetta i contatori per il prossimo ciclo randomico
+    loopCounter = 0;
+    targetLoop = Math.floor(Math.random() * 3) + 3; // Ricalcola un nuovo target casuale vicino a 4
+    lastTime = 0;
+
+    v1.classList.remove('hidden');
+    v1.currentTime = 0;
+    v1.play().catch(error => console.log("Errore ritorno a video 1:", error));
 }
 </script>
 </body>
